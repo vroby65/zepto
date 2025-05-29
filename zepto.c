@@ -151,7 +151,7 @@ void raw_mode(int enable) {
     tcsetattr(0, TCSANOW, &orig);
     printf("\033[0m\033[2J\033[H\033[?25h");
     fflush(stdout);
-    system("stty sane");  
+    int ret= system("stty sane");  
   }
 }
 
@@ -398,9 +398,11 @@ void draw(char *buf, int len, int pos) {
     printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
   }
 
-  printf("\033[%d;1H\033[107m%*s\033[0m", term_rows, term_cols, "");
-  printf("\033[K\033[%d;1H\033[7m", term_rows);
-  printf("file:%s  %s", filename ? filename : "[senza nome]", status_msg);
+  // status bar
+  char status_line[term_cols + 1];
+  snprintf(status_line, term_cols + 1, "file:%s  %s", filename ? filename : "[senza nome]", status_msg);
+  printf("\033[%d;1H\033[7m", term_rows);
+  printf("%-*.*s", term_cols, term_cols, status_line);
   printf("\033[0m");
 
   // cursor
