@@ -416,7 +416,7 @@ void editor(char *buf, int *len) {
 
     switch (ch) {
       case 0x1B:
-        snprintf(status_msg, sizeof(status_msg), "exit without save"");
+        snprintf(status_msg, sizeof(status_msg), "exit without save");
         done = 1;
         break;
       case 0xF2:
@@ -431,7 +431,7 @@ void editor(char *buf, int *len) {
             sel_mode = 0;
             sprintf(status_msg, "found");
           } else {
-            sprintf(status_msg, "not ");
+            sprintf(status_msg, "not found");
           }
         }
         break;
