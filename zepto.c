@@ -149,14 +149,18 @@ void raw_mode(int enable) {
     tcsetattr(0, TCSANOW, &raw);
   } else {
     tcsetattr(0, TCSANOW, &orig);
+    printf("\033[0m\033[2J\033[H\033[?25h");
+    fflush(stdout);
+    system("stty sane");  
   }
 }
 
 void cleanup() {
-  raw_mode(0);
+  raw_mode(0);  // include system("stty sane")
   printf("\033[0 q");
   fflush(stdout);
 }
+
 
 void get_terminal_size() {
   struct winsize ws;
