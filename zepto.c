@@ -154,7 +154,7 @@ void raw_mode(int enable) {
 
 void cleanup() {
   raw_mode(0);
-  printf("\033[0m\033[2J\033[H\033[0 q");
+  printf("\033[0 q");
   fflush(stdout);
 }
 
