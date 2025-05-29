@@ -19,6 +19,8 @@ MIT licensed, simple, fast, and perfect for minimal environments or system rescu
 Zepto was designed to be as small and portable as possible while still providing features you'd expect from a modern terminal-based editor.  
 No external libraries, no ncurses, no third-party build systems — just ANSI escape codes and raw TTY input.
 
+**see the [wiki](https://github.com/vroby65/zepto/wiki) for details**
+
 ---
 
 ## 🔧 Features
