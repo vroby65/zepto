@@ -1,4 +1,4 @@
-# Zepto Editor
+# 🧬 Zepto Editor
 
 Zepto is a **quantum-sized**, dependency-free text editor for the terminal.  
 It fits in **a few kilobytes**, yet supports modern editing features like:
