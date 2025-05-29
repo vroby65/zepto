@@ -152,6 +152,12 @@ void raw_mode(int enable) {
   }
 }
 
+void cleanup() {
+  raw_mode(0);
+  printf("\033[0m\033[2J\033[H\033[0 q");
+  fflush(stdout);
+}
+
 void get_terminal_size() {
   struct winsize ws;
   if (ioctl(1, TIOCGWINSZ, &ws) == 0) {
@@ -431,7 +437,7 @@ void editor(char *buf, int *len) {
             sel_mode = 0;
             sprintf(status_msg, "found");
           } else {
-            sprintf(status_msg, "not found");
+            sprintf(status_msg, "not ");
           }
         }
         break;
@@ -635,6 +641,8 @@ int main(int argc, char *argv[]) {
   cfmakeraw(&raw);
   tcsetattr(0, TCSANOW, &raw);
   signal(SIGINT, SIG_IGN); 
+  
+  atexit(cleanup);
   
   printf("\033[5 q"); 
 
