@@ -54,7 +54,7 @@ void record_change(int pos, const char *before, int lenb, const char *after, int
 }
 
 int undo(char *buf, int *len, int *pos) {
-  sprintf(status_msg,"undo richiesto");
+  sprintf(status_msg,"undo");
 
   if (undo_top == 0) return 0;
   struct change *c = &undo_stack[--undo_top];
@@ -67,7 +67,7 @@ int undo(char *buf, int *len, int *pos) {
 }
 
 int redo(char *buf, int *len, int *pos) {
-  sprintf(status_msg,"redo richiesto");
+  sprintf(status_msg,"redo");
   if (redo_top == 0) return 0;
   struct change *c = &redo_stack[--redo_top];
   if (undo_top < MAX_HISTORY) undo_stack[undo_top++] = *c;
@@ -416,22 +416,22 @@ void editor(char *buf, int *len) {
 
     switch (ch) {
       case 0x1B:
-        snprintf(status_msg, sizeof(status_msg), "Uscita senza salvataggio");
+        snprintf(status_msg, sizeof(status_msg), "exit without save"");
         done = 1;
         break;
       case 0xF2:
         save(buf, *len);
         break;
       case 0xF7:
-        get_input("trova: ", search_term, sizeof(search_term));
+        get_input("search: ", search_term, sizeof(search_term));
         if (search_term[0]) {
           int found = search(buf, *len, pos + 1, search_term);
           if (found >= 0) {
             pos = found;
             sel_mode = 0;
-            sprintf(status_msg, "trovato");
+            sprintf(status_msg, "found");
           } else {
-            sprintf(status_msg, "non trovato");
+            sprintf(status_msg, "not ");
           }
         }
         break;
@@ -669,4 +669,3 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-
