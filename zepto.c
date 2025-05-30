@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <stdio.h> 
 #include <stdlib.h>
 #include <unistd.h>
 #include <termios.h>
@@ -184,18 +184,32 @@ void save(char *buf, int len) {
 
 char *get_input(const char *label, char *buffer, int size) {
   int len = strlen(buffer);
-  raw_mode(1);
+
+  printf("\033[%d;1H\033[30;107m", term_rows);
+  //printf("\033[%d;1H\033[K\033[7m%s%s\033[0m", term_rows, label, buffer);
+  printf("\033[%d;1H\033[K%s%s\033[0m", term_rows, label, buffer);
+  fflush(stdout);
+
   while (1) {
-    printf("\033[%d;1H\033[K\033[7m%s%s\033[0m", term_rows, label, buffer);
-    fflush(stdout);
     int c = getchar();
     if (c == '\n' || c == '\r') break;
-    if ((c == 8 || c == 127) && len > 0) buffer[--len] = 0;
-    else if (c >= 32 && c < 127 && len < size - 1) buffer[len++] = c, buffer[len] = 0;
+
+    if ((c == 8 || c == 127) && len > 0) {
+      buffer[--len] = 0;
+    } else if (c >= 32 && c < 127 && len < size - 1) {
+      buffer[len++] = c;
+      buffer[len] = 0;
+    }
+
+  printf("\033[%d;1H\033[30;107m", term_rows);
+    //printf("\033[%d;1H\033[K\033[7m%s%s\033[0m", term_rows, label, buffer);
+    printf("\033[%d;1H\033[K%s%s\033[0m", term_rows, label, buffer);
+    fflush(stdout);
   }
-  raw_mode(0);
+
   return buffer;
 }
+
 
 int search(char *buf, int len, int start, const char *needle) {
   for (int i = start; buf[i] && i < len; i++) {
@@ -213,8 +227,12 @@ int read_key() {
   if (c == 3) return 3; // Ctrl+C
   if (c == 22) return 22; // Ctrl+V
   if (c == 24) return 24; // Ctrl+X
+  
   if (c == 25) return 25; // Ctrl+y
   if (c == 26) return 26; // Ctrl+z
+  
+  if (c == 31) return 0xF7;   // Ctrl+7 - find
+  if (c == 0) return 0xF2; // Ctrl+2 - save
   
   if (c == 13) return 10; // Return
 
@@ -443,7 +461,7 @@ void editor(char *buf, int *len) {
             sel_mode = 0;
             sprintf(status_msg, "found");
           } else {
-            sprintf(status_msg, "not ");
+            sprintf(status_msg, "not found");
           }
         }
         break;
@@ -659,7 +677,7 @@ int main(int argc, char *argv[]) {
     if (strcmp(ext, "c") == 0 || strcmp(ext, "h") == 0) language = "c";
     if (strcmp(ext, "py") == 0) language = "python";
     
-    load_keywords(language);
+    load_keywords(ext);
 
     FILE *f = fopen(filename, "r");
     if (f) {
