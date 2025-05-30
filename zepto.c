@@ -16,11 +16,23 @@
 #define KEY_LEFT   1002
 #define KEY_RIGHT  1003
 
+#define KEY_HOME   1004
+#define KEY_END    1005
+
+#define MOUSE_MOVE 1006
+
 
 struct termios orig;
 char *filename = "no-name";
 int term_rows = 24, term_cols = 80;
 char status_msg[80] = "";
+
+int mouse_x = 0,mouse_y=0;
+int scroll = 0;
+int hscroll = 0;
+
+
+
 
 //selection
 int sel_anchor = -1;
@@ -46,7 +58,6 @@ void clear_redo() {
 }
 
 void record_change(int pos, const char *before, int lenb, const char *after, int lena) {
-
   sprintf(status_msg,"record_change: pos=%d lenb=%d lena=%d", pos, lenb, lena);
   if (undo_top >= MAX_HISTORY) undo_top = 0; 
   struct change *c = &undo_stack[undo_top++];
@@ -124,20 +135,20 @@ void load_keywords(const char *lang) {
   fclose(fp);
 }
 
-
 const char *get_extension(const char *name) {
   const char *dot = strrchr(name, '.');
   return (!dot || dot == name) ? "" : dot + 1;
 }
 
-int match_and_print_keyword(char *buf, int i, int buflen) {
+int match_keyword(char *buf, int i, int buflen, const char **color, const char **word) {
   for (int k = 0; k < keyword_count; k++) {
     int len = strlen(keywords[k].word);
-    if (i + len < buflen &&
+    if (i + len <= buflen &&
         !strncmp(buf + i, keywords[k].word, len) &&
         isspace((unsigned char)buf[i + len])) {
-      printf("%s%s\033[0m", keywords[k].color, keywords[k].word);
-      return len - 1;
+      *color = keywords[k].color;
+      *word = keywords[k].word;
+      return len;
     }
   }
   return 0;
@@ -153,13 +164,15 @@ void raw_mode(int enable) {
     raw.c_cc[VTIME] = 0;
     tcsetattr(0, TCSANOW, &raw);
     
-    //printf("\033[?1000h"); // enable mouse click tracking
-    //printf("\033[?1006h"); // SGR              
+    printf("\033[?1000h"); // enable mouse click tracking
+    printf("\033[?1006h"); // SGR              
 
   } else {
     tcsetattr(0, TCSANOW, &orig);
     printf("\033[0m\033[2J\033[H\033[?25h");
-    //printf("\033[?1000l"); // disable mouse click tracking
+    printf("\033[?1000l"); // disable mouse click tracking
+    printf("\033[?1006l"); // SGR              
+
     fflush(stdout);
     int ret= system("stty sane");  
   }
@@ -254,26 +267,25 @@ int read_key() {
         
     if (seq1 == '[') {
       int seq2 = getchar();
+      
       if ( seq2 == '<') {
-        int btn = 0, x = 0, y = 0;
-        int tmp = scanf("%d;%d;%dM", &btn, &x, &y);
-        if (btn == 64) return 'U'; // wheel Up
-        if (btn == 65) return 'D'; // Wheel Down
+        int btn = 0;
+        char c;
+        int tmp = scanf("%d;%d;%d%c", &btn, &mouse_x, &mouse_y, &c);
+        if (btn == 0) return MOUSE_MOVE; //home 
+        if (btn == 64) return KEY_UP; // wheel Up
+        if (btn == 65) return KEY_DOWN; // Wheel Down
       }
-      if (seq2 == 'm') {
-        int b = getchar() - 32;
-        int x = getchar() - 32;
-        int y = getchar() - 32;
-        return 0;
-      }
+      
+      
       
       switch (seq2) {
         case 'A': return KEY_UP;     // Up
-        case 'B': return KEY_DOWN;     // Down
-        case 'C': return KEY_RIGHT;     // Right
-        case 'D': return KEY_LEFT;     // Left
-        case 'H': return 0x1F5;    // Home
-        case 'F': return 0x1F6;    // End
+        case 'B': return KEY_DOWN;   // Down
+        case 'C': return KEY_RIGHT;  // Right
+        case 'D': return KEY_LEFT;   // Left
+        case 'H': return KEY_HOME;   // Home
+        case 'F': return KEY_END;    // End
 
         case '5':
           if (getchar() == '~') return 0x1F9; // PageUp
@@ -354,8 +366,6 @@ int move_vert(char *buf, int len, int pos, int dir) {
 }
 
 void draw(char *buf, int len, int pos) {
-  static int scroll = 0;
-  static int hscroll = 0;
 
   printf("\033[?25l");  // hide cursor
   get_terminal_size();          
@@ -401,11 +411,19 @@ void draw(char *buf, int len, int pos) {
       int selected = (sel_mode && i >= sel_from && i < sel_to);
       if (selected) printf("\033[7m");
      
-      int delta = 0;
-      delta = match_and_print_keyword(buf, i, len);
-      if (delta > 0) { i += delta; visual_col += delta + 1; continue; }
+      const char *kw_color, *kw_word;
+      int delta = match_keyword(buf, i, len, &kw_color, &kw_word);
+      if (delta > 0) {
+          for (int j = 0; j < delta; j++) {
+              if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
+                  printf("%s%c\033[0m", kw_color, kw_word[j]);
+              }
+              visual_col++;
+          }
+          i += delta - 1;
+          continue;
+      }
       
-
       if (buf[i] == '\n') {
         printf("\033[0m\r\n");
         y++;
@@ -549,6 +567,20 @@ void editor(char *buf, int *len) {
       case KEY_RIGHT: if (pos < *len) pos++; sel_mode = 0; break;
       case KEY_UP: pos = move_vert(buf, *len, pos, -1); sel_mode = 0; draw(buf, *len, pos); break;
       case KEY_DOWN: pos = move_vert(buf, *len, pos, +1); sel_mode = 0; draw(buf, *len, pos); break;
+      
+      case MOUSE_MOVE:
+        pos=0;
+        for (int i = 0; i < mouse_y+scroll-1; i++) {
+          pos = move_vert(buf, *len, pos, +1);    
+        }
+        for (int i = 0; i <  mouse_x - 7; i++) {
+          if (pos < *len && buf[pos]!='\n') pos++;
+          else break; 
+        }
+        sel_mode = 0;
+        draw(buf, *len, pos); 
+        break;
+      
       case 0xF13:
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         for (int i = 0; i < term_rows - 1 && pos > 0; i--) {
@@ -640,10 +672,11 @@ void editor(char *buf, int *len) {
           }
         }
         break;
-      case 0x1F5: pos = line_start(buf, *len, pos); break;
-      case 0x1F6: pos = line_end(buf, *len, pos); break;
+      case KEY_HOME: pos = line_start(buf, *len, pos); break;
+      case KEY_END: pos = line_end(buf, *len, pos); break;
       case 0x1F7: pos = line_start(buf, *len, 0); break;
       case 0x1F8: pos = line_end(buf, *len, *len); break;
+      
       case 0x1F9:
         lines = 0;
         for (int i = pos; i > 0 && lines < term_rows - 1; i--) {
@@ -695,7 +728,7 @@ int main(int argc, char *argv[]) {
     if (strcmp(ext, "c") == 0 || strcmp(ext, "h") == 0) language = "c";
     if (strcmp(ext, "py") == 0) language = "python";
     
-   // load_keywords(ext);
+    load_keywords(ext);
 
     FILE *f = fopen(filename, "r");
     if (f) {
