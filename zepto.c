@@ -1,4 +1,4 @@
-#include <stdio.h> 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <termios.h>
@@ -8,18 +8,48 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define BUF_SIZE 65536
-#define MAX_HISTORY 1024
+#define BUF_SIZE     65536
+#define MAX_HISTORY   1024
 
-#define KEY_UP     1000
-#define KEY_DOWN   1001
-#define KEY_LEFT   1002
-#define KEY_RIGHT  1003
+#define KEY_UP        1000
+#define KEY_DOWN      1001
+#define KEY_LEFT      1002
+#define KEY_RIGHT     1003
 
-#define KEY_HOME   1004
-#define KEY_END    1005
+#define KEY_HOME      1004
+#define KEY_END       1005
+#define KEY_PAGEUP    1006 
+#define KEY_PAGEDOWN  1007 
 
-#define MOUSE_MOVE 1006
+#define CTRL_C        1008
+#define CTRL_V        1009
+#define CTRL_X        1010
+
+#define CTRL_Z        1011
+#define CTRL_Y        1012
+
+#define CTRL_A        1013
+
+#define KEY_ESC       1015
+
+#define TOP           1016
+#define BOTTOM        1017
+
+#define DELETE        1018
+
+#define SAVE          1019
+#define SEARCH        1020
+#define EXITSAVE      1021
+
+#define SELECTUP      1022
+#define SELECTDOWN    1023
+#define SELECTLEFT    1024  
+#define SELECTRIGHT   1025
+#define SELECTHOME    1026
+#define SELECTEND     1027
+
+
+#define MOUSE_MOVE    1100
 
 
 struct termios orig;
@@ -242,31 +272,29 @@ int search(char *buf, int len, int start, const char *needle) {
 int read_key() {
   int c = getchar();
 
-  if (c == 3) return 3; // Ctrl+C
-  if (c == 22) return 22; // Ctrl+V
-  if (c == 24) return 24; // Ctrl+X
-  
-  if (c == 25) return 25; // Ctrl+y
-  if (c == 26) return 26; // Ctrl+z
-  
-  if (c == 31) return 0xF7;   // Ctrl+7 - find
-  if (c == 0) return 0xF2; // Ctrl+2 - save
-  
   if (c == 13) return 10; // Return
 
+  if (c == 3) return CTRL_C; // Ctrl+C
+  if (c == 22) return CTRL_V; // Ctrl+V
+  if (c == 24) return CTRL_X; // Ctrl+X
+  
+  if (c == 25) return CTRL_Y; // Ctrl+y
+  if (c == 26) return CTRL_Z; // Ctrl+z
+  
+  if (c == 31) return SEARCH;   // Ctrl+7 - find
+  if (c == 0) return SAVE; // Ctrl+2 - save
+  
 
-  if (c == 27) { // ESC
-    
+  if (c == 27) { // ESC    
     fcntl(0, F_SETFL, O_NONBLOCK); int seq1 = getchar(); fcntl(0, F_SETFL, 0);
-    if (seq1 ==-1) return 0x1B;
+    if (seq1 ==-1) return KEY_ESC;
 
-    if (seq1 == 'b') return 0x1F5; // Alt+h → "begin row"
-    if (seq1 == 'l') return 0x1F6; // Alt+e → "end row"
-    if (seq1 == 'h') return 0x1F7; // Alt+h → "begin file"
-    if (seq1 == 'e') return 0x1F8; // Alt+e → "end file"
+    if (seq1 == 'h') return TOP; // Alt+h → "begin file"
+    if (seq1 == 'e') return BOTTOM; // Alt+e → "end file"
         
     if (seq1 == '[') {
       int seq2 = getchar();
+      
       
       if ( seq2 == '<') {
         int btn = 0;
@@ -277,49 +305,48 @@ int read_key() {
         if (btn == 65) return KEY_DOWN; // Wheel Down
       }
       
-      
-      
       switch (seq2) {
         case 'A': return KEY_UP;     // Up
         case 'B': return KEY_DOWN;   // Down
         case 'C': return KEY_RIGHT;  // Right
         case 'D': return KEY_LEFT;   // Left
+
         case 'H': return KEY_HOME;   // Home
         case 'F': return KEY_END;    // End
 
         case '5':
-          if (getchar() == '~') return 0x1F9; // PageUp
+          if (getchar() == '~') return KEY_PAGEUP; // PageUp
           break;
         case '6':
-          if (getchar() == '~') return 0x1FA; // PageDown
+          if (getchar() == '~') return KEY_PAGEDOWN; // PageDown
           break;
                 
         case '3':
-          if (getchar() == '~') return 0x7F7F; // Delete
+          if (getchar() == '~') return DELETE; // Delete
           break;
         case '2':
-          if (getchar() == '1' && getchar() == '~') return 0xF10; // F10
+          if (getchar() == '1' && getchar() == '~') return EXITSAVE; // F10
           break;
         case '1': {
           int next = getchar();
-          if (next == '0' && getchar() == '~') return 0xF10;
+          if (next == '0' && getchar() == '~') return EXITSAVE;
           if (next == '1' && getchar() == '~') return 0xF1;
-          if (next == '2' && getchar() == '~') return 0xF2;
-          if (next == '8' && getchar() == '~') return 0xF7;
+          if (next == '2' && getchar() == '~') return SAVE;
+          if (next == '8' && getchar() == '~') return SEARCH;
           if (next == ';') {
             int mod = getchar();
             int final = getchar();
             if (mod == '2') {
               switch (final) {
-                case 'A': return 0xF13; // Shift+Up
-                case 'B': return 0xF14; // Shift+Down
-                case 'C': return 0xF12; // Shift+Right
-                case 'D': return 0xF11; // Shift+Left
+                case 'A': return SELECTUP; // Shift+Up
+                case 'B': return SELECTDOWN; // Shift+Down
+                case 'C': return SELECTRIGHT; // Shift+Right
+                case 'D': return SELECTLEFT; // Shift+Left
               }
             }            
             if (mod == '3') {
-              if (final == 'H') return 0xF7; // Shift+Home
-              if (final == 'F') return 0xF8; // Shift+End
+              if (final == 'H') return SELECTHOME; // ALT+Home
+              if (final == 'F') return SELECTEND; // ALT+End
             }
           }
           break;
@@ -481,14 +508,13 @@ void editor(char *buf, int *len) {
     snprintf(status_msg, sizeof(status_msg), "  ESC exit | F2 save | F7 search | F10 save & exit");
 
     switch (ch) {
-      case 0x1B:
-        snprintf(status_msg, sizeof(status_msg), "exit without save");
+      case KEY_ESC: //exit without save
         done = 1;
         break;
-      case 0xF2:
+      case SAVE: // save
         save(buf, *len);
         break;
-      case 0xF7:
+      case SEARCH: // search
         get_input("search: ", search_term, sizeof(search_term));
         if (search_term[0]) {
           int found = search(buf, *len, pos + 1, search_term);
@@ -501,7 +527,7 @@ void editor(char *buf, int *len) {
           }
         }
         break;
-      case 0xF10:
+      case EXITSAVE:
         save(buf, *len);
         done = 1;
         break;
@@ -531,7 +557,7 @@ void editor(char *buf, int *len) {
         }
         break;
         
-      case 0x7F7F: // del
+      case DELETE: // del
         if (sel_mode) {
           int from = pos < sel_anchor ? pos : sel_anchor;
           int to = pos > sel_anchor ? pos : sel_anchor;
@@ -555,7 +581,7 @@ void editor(char *buf, int *len) {
         }
         break;
         
-      case 10:
+      case 10: //RETURN
         if (*len < BUF_SIZE - 1) {
           memmove(buf + pos + 1, buf + pos, *len - pos);
           buf[pos++] = '\n';
@@ -581,7 +607,7 @@ void editor(char *buf, int *len) {
         draw(buf, *len, pos); 
         break;
       
-      case 0xF13:
+      case SELECTUP: //selectup
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         for (int i = 0; i < term_rows - 1 && pos > 0; i--) {
           pos = (pos > 0) ? pos - 1 : 0;
@@ -589,7 +615,7 @@ void editor(char *buf, int *len) {
         }
         break;
         
-      case 0xF14:
+      case SELECTDOWN: //selectdown
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         for (int i = 0; i < term_rows - 1 && pos < *len; i++) {
           if (buf[pos] == '\n') {
@@ -600,17 +626,31 @@ void editor(char *buf, int *len) {
         }
         break;
         
-      case 0xF12:
+      case SELECTRIGHT: //selectright
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         if (pos < *len) pos++;
         break;
         
-      case 0xF11:
+      case SELECTLEFT: //selectleft
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         if (pos > 0) pos--;
         break;
         
-      case 3:
+      case SELECTHOME: 
+        while (pos > line_start(buf, *len, pos)){ 
+          if (!sel_mode) sel_anchor = pos, sel_mode = 1;
+          if (pos > 0) pos--;
+        }
+        break;
+
+      case SELECTEND: 
+        while(pos < line_end(buf, *len, pos)){ 
+          if (!sel_mode) sel_anchor = pos, sel_mode = 1;
+          if (pos < *len) pos++;
+        }
+        break;
+        
+      case CTRL_C:
         if (sel_mode) {
           int start = (sel_anchor < pos) ? sel_anchor : pos;
           int end = (sel_anchor > pos) ? sel_anchor : pos;
@@ -633,17 +673,17 @@ void editor(char *buf, int *len) {
         }
         break;
       
-      case 26: // Ctrl+Z
+      case CTRL_Z: // Ctrl+Z
         sprintf(status_msg,"undo");
         undo(buf, len, &pos);
         break;
 
-      case 25: // Ctrl+Y
+      case CTRL_Y: // Ctrl+Y
         sprintf(status_msg,"redo");
         redo(buf, len, &pos);
         break;
         
-      case 24:
+      case CTRL_X:
         if (sel_mode) {
           int start = sel_anchor < pos ? sel_anchor : pos;
           int end = sel_anchor > pos ? sel_anchor : pos;
@@ -660,7 +700,7 @@ void editor(char *buf, int *len) {
           }
         }
         break;
-      case 22:
+      case CTRL_V:
         {
           int len_clip = strlen(clipboard);
           record_change(pos, NULL, 0, clipboard, len_clip);
@@ -674,10 +714,11 @@ void editor(char *buf, int *len) {
         break;
       case KEY_HOME: pos = line_start(buf, *len, pos); break;
       case KEY_END: pos = line_end(buf, *len, pos); break;
-      case 0x1F7: pos = line_start(buf, *len, 0); break;
-      case 0x1F8: pos = line_end(buf, *len, *len); break;
       
-      case 0x1F9:
+      case TOP: pos = line_start(buf, *len, 0); break;
+      case BOTTOM: pos = line_end(buf, *len, *len); break;
+      
+      case KEY_PAGEUP:
         lines = 0;
         for (int i = pos; i > 0 && lines < term_rows - 1; i--) {
           if (buf[i] == '\n') lines++;
@@ -685,7 +726,7 @@ void editor(char *buf, int *len) {
         }
         pos = line_start(buf, *len, pos);
         break;
-      case 0x1FA:
+      case KEY_PAGEDOWN:
         lines = 0;
         for (int i = pos; i < *len && lines < term_rows - 1; i++) {
           pos = i;
