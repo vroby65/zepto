@@ -2,11 +2,11 @@
 
 This directory contains **syntax highlighting files** used by the Zepto text editor.
 
-Each file is named according to the programming language it supports, e.g.:
+Each file is named according to the programming language extension it supports, e.g.:
 
 - `c.config`
-- `python.config`
-- `bash.config`
+- `py.config`
+- `sh.config`
 
 These files define which **keywords** should be highlighted and what **color** to use.
 
