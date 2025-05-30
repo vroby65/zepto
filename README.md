@@ -121,9 +121,9 @@ zepto filename.c
 Controls:
 
 * `Esc` — exit without saving
-* `F2` — save
+* `F2` or `Ctrl+2` — save
 * `F10` — save and exit
-* `F7` — search
+* `F7` or `Ctrl+7` — search
 * `Ctrl+Z` / `Ctrl+Y` — undo / redo
 * `Ctrl+C` / `Ctrl+X` / `Ctrl+V` — copy / cut / paste
 * Shift + Arrows — text selection
