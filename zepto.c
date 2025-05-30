@@ -11,6 +11,12 @@
 #define BUF_SIZE 65536
 #define MAX_HISTORY 1024
 
+#define KEY_UP     1000
+#define KEY_DOWN   1001
+#define KEY_LEFT   1002
+#define KEY_RIGHT  1003
+
+
 struct termios orig;
 char *filename = "no-name";
 int term_rows = 24, term_cols = 80;
@@ -146,9 +152,14 @@ void raw_mode(int enable) {
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 0;
     tcsetattr(0, TCSANOW, &raw);
+    
+    //printf("\033[?1000h"); // enable mouse click tracking
+    //printf("\033[?1006h"); // SGR              
+
   } else {
     tcsetattr(0, TCSANOW, &orig);
     printf("\033[0m\033[2J\033[H\033[?25h");
+    //printf("\033[?1000l"); // disable mouse click tracking
     fflush(stdout);
     int ret= system("stty sane");  
   }
@@ -230,20 +241,6 @@ int read_key() {
   
   if (c == 13) return 10; // Return
 
-  // mouse wheel
-  /*
-  if (c == 27) { // ESC
-    if ((c = getchar()) == '[') {
-      if ((c = getchar()) == '<') {
-        int btn = 0, x = 0, y = 0;
-        int tmp = scanf("%d;%d;%dM", &btn, &x, &y);
-        raw_mode(1);
-        if (btn == 64) return 'U'; // Rotella su
-        if (btn == 65) return 'D'; // Rotella giù
-      }
-    }
-  }
-  */
 
   if (c == 27) { // ESC
     
@@ -260,15 +257,21 @@ int read_key() {
       if ( seq2 == '<') {
         int btn = 0, x = 0, y = 0;
         int tmp = scanf("%d;%d;%dM", &btn, &x, &y);
-        if (btn == 64) return 'U'; // Rotella su
-        if (btn == 65) return 'D'; // Rotella giù
+        if (btn == 64) return 'U'; // wheel Up
+        if (btn == 65) return 'D'; // Wheel Down
       }
-
+      if (seq2 == 'm') {
+        int b = getchar() - 32;
+        int x = getchar() - 32;
+        int y = getchar() - 32;
+        return 0;
+      }
+      
       switch (seq2) {
-        case 'A': return 'U';     // Up
-        case 'B': return 'D';     // Down
-        case 'C': return 'R';     // Right
-        case 'D': return 'L';     // Left
+        case 'A': return KEY_UP;     // Up
+        case 'B': return KEY_DOWN;     // Down
+        case 'C': return KEY_RIGHT;     // Right
+        case 'D': return KEY_LEFT;     // Left
         case 'H': return 0x1F5;    // Home
         case 'F': return 0x1F6;    // End
 
@@ -542,10 +545,10 @@ void editor(char *buf, int *len) {
         }
         break;
         
-      case 'L': if (pos > 0) pos--; sel_mode = 0; break;
-      case 'R': if (pos < *len) pos++; sel_mode = 0; break;
-      case 'U': pos = move_vert(buf, *len, pos, -1); sel_mode = 0; draw(buf, *len, pos); break;
-      case 'D': pos = move_vert(buf, *len, pos, +1); sel_mode = 0; draw(buf, *len, pos); break;
+      case KEY_LEFT: if (pos > 0) pos--; sel_mode = 0; break;
+      case KEY_RIGHT: if (pos < *len) pos++; sel_mode = 0; break;
+      case KEY_UP: pos = move_vert(buf, *len, pos, -1); sel_mode = 0; draw(buf, *len, pos); break;
+      case KEY_DOWN: pos = move_vert(buf, *len, pos, +1); sel_mode = 0; draw(buf, *len, pos); break;
       case 0xF13:
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         for (int i = 0; i < term_rows - 1 && pos > 0; i--) {
@@ -708,14 +711,11 @@ int main(int argc, char *argv[]) {
 
   printf("\033[2J\033[H");       
   raw_mode(1);       
-  //printf("\033[?1000h"); // enable mouse click tracking
-  //printf("\033[?1006h"); // SGR              
   get_terminal_size();          
   editor(buf, &len);           
   raw_mode(0);                  
   printf("\033[0m\033[2J\033[H"); 
   printf("\033[0 q"); 
 
-  //printf("\033[?1000l"); // disable mouse click tracking
   return 0;
 }
