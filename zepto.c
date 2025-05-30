@@ -16,7 +16,6 @@ char *filename = "no-name";
 int term_rows = 24, term_cols = 80;
 char status_msg[80] = "";
 
-
 //selection
 int sel_anchor = -1;
 int sel_mode = 0;
@@ -41,8 +40,8 @@ void clear_redo() {
 }
 
 void record_change(int pos, const char *before, int lenb, const char *after, int lena) {
-  sprintf(status_msg,"record_change: pos=%d lenb=%d lena=%d", pos, lenb, lena);
 
+  sprintf(status_msg,"record_change: pos=%d lenb=%d lena=%d", pos, lenb, lena);
   if (undo_top >= MAX_HISTORY) undo_top = 0; 
   struct change *c = &undo_stack[undo_top++];
   c->pos = pos;
@@ -156,11 +155,10 @@ void raw_mode(int enable) {
 }
 
 void cleanup() {
-  raw_mode(0);  // include system("stty sane")
+  raw_mode(0);  
   printf("\033[0 q");
   fflush(stdout);
 }
-
 
 void get_terminal_size() {
   struct winsize ws;
@@ -186,7 +184,6 @@ char *get_input(const char *label, char *buffer, int size) {
   int len = strlen(buffer);
 
   printf("\033[%d;1H\033[30;107m", term_rows);
-  //printf("\033[%d;1H\033[K\033[7m%s%s\033[0m", term_rows, label, buffer);
   printf("\033[%d;1H\033[K%s%s\033[0m", term_rows, label, buffer);
   fflush(stdout);
 
@@ -201,15 +198,13 @@ char *get_input(const char *label, char *buffer, int size) {
       buffer[len] = 0;
     }
 
-  printf("\033[%d;1H\033[30;107m", term_rows);
-    //printf("\033[%d;1H\033[K\033[7m%s%s\033[0m", term_rows, label, buffer);
+    printf("\033[%d;1H\033[30;107m", term_rows);
     printf("\033[%d;1H\033[K%s%s\033[0m", term_rows, label, buffer);
     fflush(stdout);
   }
 
   return buffer;
 }
-
 
 int search(char *buf, int len, int start, const char *needle) {
   for (int i = start; buf[i] && i < len; i++) {
@@ -219,7 +214,6 @@ int search(char *buf, int len, int start, const char *needle) {
   }
   return -1;
 }
-
 
 int read_key() {
   int c = getchar();
@@ -236,6 +230,21 @@ int read_key() {
   
   if (c == 13) return 10; // Return
 
+  // mouse wheel
+  /*
+  if (c == 27) { // ESC
+    if ((c = getchar()) == '[') {
+      if ((c = getchar()) == '<') {
+        int btn = 0, x = 0, y = 0;
+        int tmp = scanf("%d;%d;%dM", &btn, &x, &y);
+        raw_mode(1);
+        if (btn == 64) return 'U'; // Rotella su
+        if (btn == 65) return 'D'; // Rotella giù
+      }
+    }
+  }
+  */
+
   if (c == 27) { // ESC
     
     fcntl(0, F_SETFL, O_NONBLOCK); int seq1 = getchar(); fcntl(0, F_SETFL, 0);
@@ -248,6 +257,12 @@ int read_key() {
         
     if (seq1 == '[') {
       int seq2 = getchar();
+      if ( seq2 == '<') {
+        int btn = 0, x = 0, y = 0;
+        int tmp = scanf("%d;%d;%dM", &btn, &x, &y);
+        if (btn == 64) return 'U'; // Rotella su
+        if (btn == 65) return 'D'; // Rotella giù
+      }
 
       switch (seq2) {
         case 'A': return 'U';     // Up
@@ -529,8 +544,8 @@ void editor(char *buf, int *len) {
         
       case 'L': if (pos > 0) pos--; sel_mode = 0; break;
       case 'R': if (pos < *len) pos++; sel_mode = 0; break;
-      case 'U': pos = move_vert(buf, *len, pos, -1); sel_mode = 0; break;
-      case 'D': pos = move_vert(buf, *len, pos, +1); sel_mode = 0; break;
+      case 'U': pos = move_vert(buf, *len, pos, -1); sel_mode = 0; draw(buf, *len, pos); break;
+      case 'D': pos = move_vert(buf, *len, pos, +1); sel_mode = 0; draw(buf, *len, pos); break;
       case 0xF13:
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         for (int i = 0; i < term_rows - 1 && pos > 0; i--) {
@@ -677,7 +692,7 @@ int main(int argc, char *argv[]) {
     if (strcmp(ext, "c") == 0 || strcmp(ext, "h") == 0) language = "c";
     if (strcmp(ext, "py") == 0) language = "python";
     
-    load_keywords(ext);
+   // load_keywords(ext);
 
     FILE *f = fopen(filename, "r");
     if (f) {
@@ -692,12 +707,15 @@ int main(int argc, char *argv[]) {
   }
 
   printf("\033[2J\033[H");       
-  raw_mode(1);                    
+  raw_mode(1);       
+  //printf("\033[?1000h"); // enable mouse click tracking
+  //printf("\033[?1006h"); // SGR              
   get_terminal_size();          
   editor(buf, &len);           
   raw_mode(0);                  
   printf("\033[0m\033[2J\033[H"); 
   printf("\033[0 q"); 
 
+  //printf("\033[?1000l"); // disable mouse click tracking
   return 0;
 }
