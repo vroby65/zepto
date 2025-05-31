@@ -426,10 +426,8 @@ int move_vert(char *buf, int len, int pos, int dir) {
 }
 
 void draw(char *buf, int len, int pos) {
-
   printf("\033[?25l");  // hide cursor
-  get_terminal_size();          
-
+  get_terminal_size();
 
   int sel_from = -1, sel_to = -1;
   if (sel_mode) {
@@ -469,21 +467,25 @@ void draw(char *buf, int len, int pos) {
       }
 
       int selected = (sel_mode && i >= sel_from && i < sel_to);
-      if (selected) printf("\033[7m");
-     
       const char *kw_color, *kw_word;
       int delta = match_keyword(buf, i, len, &kw_color, &kw_word);
+
       if (delta > 0) {
-          for (int j = 0; j < delta; j++) {
-              if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
-                  printf("%s%c\033[0m", kw_color, kw_word[j]);
-              }
-              visual_col++;
+        if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6 && selected) {
+          printf("\033[7m");
+        }
+        printf("%s", kw_color);
+        for (int j = 0; j < delta; j++) {
+          if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
+            putchar(kw_word[j]);
           }
-          i += delta - 1;
-          continue;
+          visual_col++;
+        }
+        printf("\033[0m");
+        i += delta - 1;
+        continue;
       }
-      
+
       if (buf[i] == '\n') {
         printf("\033[0m\r\n");
         y++;
@@ -492,7 +494,9 @@ void draw(char *buf, int len, int pos) {
         line++;
       } else {
         if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
+          if (selected) printf("\033[7m");
           putchar(buf[i]);
+          if (selected) printf("\033[0m");
         }
         visual_col++;
         if (i == len - 1) {
@@ -501,8 +505,6 @@ void draw(char *buf, int len, int pos) {
           show_line++;
         }
       }
-      
-      if (selected && buf[i] != '\n') printf("\033[0m");
     } else if (buf[i] == '\n') {
       line++;
     }
@@ -522,7 +524,6 @@ void draw(char *buf, int len, int pos) {
   // cursor
   cx = col - hscroll + 7;
   cy = l - scroll + 1;
-
   printf("\033[%d;%dH", cy, cx);
   printf("\033[?25h");  // show cursor
 }
