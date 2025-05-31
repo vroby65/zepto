@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <signal.h>
 
@@ -47,9 +48,12 @@
 #define SELECTRIGHT   1025
 #define SELECTHOME    1026
 #define SELECTEND     1027
+#define SELECTALL     1028
 
 
 #define MOUSE_MOVE    1100
+#define DOUBLE_CLICK  1101
+#define TRIPLE_CLICK  1102
 
  
 struct termios orig;
@@ -57,12 +61,11 @@ char *filename = "no-name";
 int term_rows = 24, term_cols = 80;
 char status_msg[80] = "";
 
-int mouse_x = 0,mouse_y=0;
 int scroll = 0;
 int hscroll = 0;
 
-
-
+//mouse
+int mouse_x = 0,mouse_y=0;
 
 //selection
 int sel_anchor = -1;
@@ -270,16 +273,20 @@ int search(char *buf, int len, int start, const char *needle) {
 }
 
 int read_key() {
+  static int last_click_time = 0;
+  static int click_count = 0;
+
   int c = getchar();
 
+  if (c== 1) return SELECTALL; //CTRL+A
   if (c == 13) return 10; // Return
 
   if (c == 3) return CTRL_C; // Ctrl+C
   if (c == 22) return CTRL_V; // Ctrl+V
   if (c == 24) return CTRL_X; // Ctrl+X
   
-  if (c == 25) return CTRL_Y; // Ctrl+y
-  if (c == 26) return CTRL_Z; // Ctrl+z
+  if (c == 25) return CTRL_Y; // Ctrl+Y
+  if (c == 26) return CTRL_Z; // Ctrl+Z
   
   if (c == 31) return SEARCH;   // Ctrl+7 - find
   if (c == 0) return SAVE; // Ctrl+2 - save
@@ -300,7 +307,33 @@ int read_key() {
         int btn = 0;
         char c;
         int tmp = scanf("%d;%d;%d%c", &btn, &mouse_x, &mouse_y, &c);
-        if (btn == 0) return MOUSE_MOVE; //home 
+        if (btn == 0) {
+          struct timeval tv;
+          gettimeofday(&tv, NULL);
+          int now = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
+          if (last_click_time == 0 ) {
+            click_count = 1;
+            last_click_time = now;
+            return MOUSE_MOVE;
+          }
+
+          click_count++;
+
+          if (click_count == 2 && now - last_click_time < 400) {
+            last_click_time = now;
+            return DOUBLE_CLICK;
+          }
+
+          if (click_count == 3 && now - last_click_time < 400) {
+            click_count = 0;
+            last_click_time = 0;
+            return TRIPLE_CLICK;
+          }
+          last_click_time = 0;
+          click_count=0;
+        }
+                
         if (btn == 64) return KEY_UP; // wheel Up
         if (btn == 65) return KEY_DOWN; // Wheel Down
       }
@@ -606,7 +639,51 @@ void editor(char *buf, int *len) {
         sel_mode = 0;
         draw(buf, *len, pos); 
         break;
+
+      case DOUBLE_CLICK: {
+        pos = 0;
+        for (int i = 0; i < mouse_y + scroll - 1; i++) {
+          pos = move_vert(buf, *len, pos, +1);
+        }
+        for (int i = 0; i < mouse_x - 7; i++) {
+          if (pos < *len && buf[pos] != '\n') pos++;
+          else break;
+        }
+        int start = pos;
+        while (start > 0 && (isalnum(buf[start - 1]) || buf[start - 1] == '_')) {
+          start--;
+        }
+        int end = pos;
+        while (end < *len && (isalnum(buf[end]) || buf[end] == '_')) {
+          end++;
+        }
+        sel_anchor = start;
+        pos = end;
+        sel_mode = 1;
+        draw(buf, *len, pos);
+        break;
+      }
       
+      case TRIPLE_CLICK: {
+        pos = 0;
+        for (int i = 0; i < mouse_y + scroll - 1; i++) {
+          pos = move_vert(buf, *len, pos, +1);
+        }
+        for (int i = 0; i < mouse_x - 7; i++) {
+          if (pos < *len && buf[pos] != '\n') pos++;
+          else break;
+        }
+
+        int start = line_start(buf, *len, pos);
+        int end = line_end(buf, *len, pos);
+        sel_anchor = start;
+        pos = end;
+        sel_mode = 1;
+        draw(buf, *len, pos);
+        break;
+      }
+      
+                    
       case SELECTUP: //selectup
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         for (int i = 0; i < term_rows - 1 && pos > 0; i--) {
@@ -649,7 +726,14 @@ void editor(char *buf, int *len) {
           if (pos < *len) pos++;
         }
         break;
-        
+
+      case SELECTALL:
+        sel_anchor = 0;
+        pos = *len;
+        sel_mode = 1;
+        draw(buf, *len, pos);
+        break;
+              
       case CTRL_C:
         if (sel_mode) {
           int start = (sel_anchor < pos) ? sel_anchor : pos;
