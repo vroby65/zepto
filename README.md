@@ -30,7 +30,8 @@ No external libraries, no ncurses, no third-party build systems — just ANSI es
 - **Undo/Redo**: based on compact history stacks
 - **Clipboard**: supports `Ctrl+C` / `Ctrl+X` / `Ctrl+V`
 - **Syntax highlighting**: colorizes keywords using user-defined config files
-- **Compact**: built binary under 20 KB
+- **Compact**: built binary under 30 KB
+- **Mouse support**: SGR mode supported. mouse wheel to scroll source and click to locate cursor 
 - **Portable**: works on any POSIX terminal
 
 ---
