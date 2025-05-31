@@ -51,7 +51,7 @@
 
 #define MOUSE_MOVE    1100
 
-
+ 
 struct termios orig;
 char *filename = "no-name";
 int term_rows = 24, term_cols = 80;
