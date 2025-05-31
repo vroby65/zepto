@@ -66,6 +66,7 @@ int hscroll = 0;
 
 //mouse
 int mouse_x = 0,mouse_y=0;
+char mouse_b;
 
 //selection
 int sel_anchor = -1;
@@ -198,12 +199,14 @@ void raw_mode(int enable) {
     tcsetattr(0, TCSANOW, &raw);
     
     printf("\033[?1000h"); // enable mouse click tracking
+    printf("\033[?1002h"); // button-event mouse mode (press/drag/release)
     printf("\033[?1006h"); // SGR              
 
   } else {
     tcsetattr(0, TCSANOW, &orig);
     printf("\033[0m\033[2J\033[H\033[?25h");
     printf("\033[?1000l"); // disable mouse click tracking
+    printf("\033[?1002l");
     printf("\033[?1006l"); // SGR              
 
     fflush(stdout);
@@ -307,33 +310,46 @@ int read_key() {
         int btn = 0;
         char c;
         int tmp = scanf("%d;%d;%d%c", &btn, &mouse_x, &mouse_y, &c);
-        if (btn == 0) {
-          struct timeval tv;
-          gettimeofday(&tv, NULL);
-          int now = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-
-          if (last_click_time == 0 ) {
-            click_count = 1;
-            last_click_time = now;
-            return MOUSE_MOVE;
-          }
-
+        
+        if (c == 'm') {
+          mouse_b = 0;
           click_count++;
-
-          if (click_count == 2 && now - last_click_time < 400) {
-            last_click_time = now;
-            return DOUBLE_CLICK;
-          }
-
-          if (click_count == 3 && now - last_click_time < 400) {
-            click_count = 0;
-            last_click_time = 0;
-            return TRIPLE_CLICK;
-          }
-          last_click_time = 0;
-          click_count=0;
+          return 0;
         }
-                
+        else{
+          if (btn == 0 || (btn & 32)) {
+            mouse_b=1;
+            struct timeval tv;
+            gettimeofday(&tv, NULL);
+            int now = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+            
+            if (now - last_click_time > 400){
+              last_click_time = 0;
+              click_count=0;
+              sel_mode=0;
+              sel_anchor=-1;
+            }
+
+            if (click_count<2) {
+              click_count=1;
+              last_click_time = now;
+              return MOUSE_MOVE;
+            }            
+            
+            if (click_count == 2 && now - last_click_time < 400) {
+              sel_mode=0;
+              last_click_time = now;
+              return DOUBLE_CLICK;
+            }
+
+            if (click_count == 3 && now - last_click_time < 400) {
+              sel_mode=0;
+              click_count = 0;
+              last_click_time = 0;
+              return TRIPLE_CLICK;
+            }
+          }
+        }
         if (btn == 64) return KEY_UP; // wheel Up
         if (btn == 65) return KEY_DOWN; // Wheel Down
       }
@@ -629,16 +645,23 @@ void editor(char *buf, int *len) {
       case KEY_DOWN: pos = move_vert(buf, *len, pos, +1); sel_mode = 0; draw(buf, *len, pos); break;
       
       case MOUSE_MOVE:
-        pos=0;
-        for (int i = 0; i < mouse_y+scroll-1; i++) {
-          pos = move_vert(buf, *len, pos, +1);    
+        pos = 0;
+        for (int i = 0; i < mouse_y + scroll - 1; i++) {
+          pos = move_vert(buf, *len, pos, +1);
         }
-        for (int i = 0; i <  mouse_x - 7; i++) {
-          if (pos < *len && buf[pos]!='\n') pos++;
-          else break; 
+        for (int i = 0; i < mouse_x - 7; i++) {
+          if (pos < *len && buf[pos] != '\n') pos++;
+          else break;
         }
-        sel_mode = 0;
-        draw(buf, *len, pos); 
+
+        if (!sel_mode ) {
+          sel_anchor = pos;
+          sel_mode = 1;
+        }
+        
+        //if (mouse_b==0)sel_mode=0;
+
+        draw(buf, *len, pos);
         break;
 
       case DOUBLE_CLICK: {
