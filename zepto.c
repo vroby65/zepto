@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <termios.h>
 #include <string.h>
@@ -7,10 +8,13 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <limits.h>
 #include <signal.h>
 
 #define BUF_SIZE     65536
 #define MAX_HISTORY   1024
+
 
 #define KEY_UP        1000
 #define KEY_DOWN      1001
@@ -228,18 +232,6 @@ void get_terminal_size() {
   }
 }
 
-void save(char *buf, int len) {
-  if (!filename) return;
-  FILE *f = fopen(filename, "w");
-  if (f) {
-    fwrite(buf, 1, len, f);
-    fclose(f);
-    snprintf(status_msg, sizeof(status_msg), "Saved in %s", filename);
-  } else {
-    snprintf(status_msg, sizeof(status_msg), "Save error");
-  }
-}
-
 char *get_input(const char *label, char *buffer, int size) {
   int len = strlen(buffer);
 
@@ -298,9 +290,14 @@ int read_key() {
   if (c == 27) { // ESC    
     fcntl(0, F_SETFL, O_NONBLOCK); int seq1 = getchar(); fcntl(0, F_SETFL, 0);
     if (seq1 ==-1) return KEY_ESC;
+    if (seq1=='O' && getchar()=='Q')return SAVE; //F2
+
 
     if (seq1 == 'h') return TOP; // Alt+h → "begin file"
     if (seq1 == 'e') return BOTTOM; // Alt+e → "end file"
+    
+    
+    
         
     if (seq1 == '[') {
       int seq2 = getchar();
@@ -378,10 +375,7 @@ int read_key() {
           break;
         case '1': {
           int next = getchar();
-          if (next == '0' && getchar() == '~') return EXITSAVE;
-          if (next == '1' && getchar() == '~') return 0xF1;
-          if (next == '2' && getchar() == '~') return SAVE;
-          if (next == '8' && getchar() == '~') return SEARCH;
+          if (next == '8' && getchar() == '~') return SEARCH;//F7
           if (next == ';') {
             int mod = getchar();
             int final = getchar();
@@ -542,6 +536,59 @@ void draw(char *buf, int len, int pos) {
   cy = l - scroll + 1;
   printf("\033[%d;%dH", cy, cx);
   printf("\033[?25h");  // show cursor
+}
+
+void save(char *buf, int len) {
+  if (!filename) return;
+
+  FILE *f = fopen(filename, "w");
+  if (f) {
+    fwrite(buf, 1, len, f);
+    fclose(f);
+    snprintf(status_msg, sizeof(status_msg), "Saved in %s", filename);
+    return;
+  }
+
+  if (errno == EACCES || errno == EPERM) {
+    char tmpname[] = "/tmp/zeptoXXXXXX";
+    int fd = mkstemp(tmpname);
+    if (fd == -1) {
+      snprintf(status_msg, sizeof(status_msg), "Temp file error");
+      return;
+    }
+
+    if (write(fd, buf, len) != len) {
+      close(fd);
+      unlink(tmpname);
+      snprintf(status_msg, sizeof(status_msg), "Write temp file failed");
+      return;
+    }
+    close(fd);
+
+    char password[128] = "";
+    get_input("password: ", password, sizeof(password));
+
+    snprintf(status_msg, sizeof(status_msg), "🔐 Writing with sudo...");
+    draw(buf, len, 0);
+    fflush(stdout);
+
+    char cmd[PATH_MAX + 256];
+    snprintf(cmd, sizeof(cmd),
+      "echo '%s' | sudo -S dd if='%s' of='%s' conv=notrunc status=none",
+      password, tmpname, filename);
+
+    int r = system(cmd);
+
+    if (r == 0) {
+      snprintf(status_msg, sizeof(status_msg), "Saved with sudo: %s", filename);
+    } else {
+      snprintf(status_msg, sizeof(status_msg), "Save failed (sudo)");
+    }
+
+    unlink(tmpname);
+  } else {
+    snprintf(status_msg, sizeof(status_msg), "Save error");
+  }
 }
 
 void editor(char *buf, int *len) {
