@@ -93,7 +93,7 @@ static int redo_top = 0;
 
 void clear_redo() {
   redo_top = 0;
-}
+} 
 
 void record_change(int pos, const char *before, int lenb, const char *after, int lena) {
   sprintf(status_msg,"record_change: pos=%d lenb=%d lena=%d", pos, lenb, lena);
@@ -182,15 +182,24 @@ int match_keyword(char *buf, int i, int buflen, const char **color, const char *
   for (int k = 0; k < keyword_count; k++) {
     int len = strlen(keywords[k].word);
     if (i + len <= buflen &&
-        !strncmp(buf + i, keywords[k].word, len) &&
-        isspace((unsigned char)buf[i + len])) {
-      *color = keywords[k].color;
-      *word = keywords[k].word;
-      return len;
+        !strncmp(buf + i, keywords[k].word, len)) {
+
+      char prev = (i > 0) ? buf[i - 1] : ' ';
+      char next = buf[i + len];
+
+      if (!isalnum((unsigned char)prev) && prev != '_' &&
+          (isspace((unsigned char)next) || next == '\0' ||
+           strchr("();{}[]<>+-*/%=!&|^,.", next))) {
+
+        *color = keywords[k].color;
+        *word = keywords[k].word;
+        return len;
+      }
     }
   }
   return 0;
 }
+
 
 void raw_mode(int enable) {
   static struct termios raw;
