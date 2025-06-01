@@ -588,6 +588,7 @@ void editor(char *buf, int *len) {
           int to = pos > sel_anchor ? pos : sel_anchor;
           int count = to - from;
           if (count > 0) {
+            record_change(from, buf + from, count, NULL, 0);
             memmove(buf + from, buf + to, *len - to);
             *len -= count;
             buf[*len] = 0;
@@ -613,6 +614,7 @@ void editor(char *buf, int *len) {
           int to = pos > sel_anchor ? pos : sel_anchor;
           int count = to - from;
           if (count > 0) {
+            record_change(from, buf + from, count, NULL, 0);
             memmove(buf + from, buf + to, *len - to);
             *len -= count;
             buf[*len] = 0;
