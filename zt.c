@@ -151,7 +151,7 @@ void load_keywords(const char *lang) {
   keyword_count = 0;
 
   char path[128];
-  snprintf(path, sizeof(path), "%s/.config/zepto/language/%s.config", getenv("HOME"), lang);
+  snprintf(path, sizeof(path), "%s/.config/ze/languages/%s.config", getenv("HOME"), lang);
 
   FILE *fp = fopen(path, "r");
   if (!fp) return;
@@ -559,7 +559,7 @@ void save(char *buf, int len) {
   }
 
   if (errno == EACCES || errno == EPERM) {
-    char tmpname[] = "/tmp/zeptoXXXXXX";
+    char tmpname[] = "/tmp/zeXXXXXX";
     int fd = mkstemp(tmpname);
     if (fd == -1) {
       snprintf(status_msg, sizeof(status_msg), "Temp file error");

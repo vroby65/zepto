@@ -1,22 +1,21 @@
 #!/bin/sh
 
-# Compila zepto (facoltativo, rimuovi se già fatto)
-if [ -f zepto.c ]; then
-  echo "Compilazione di zepto..."
-  gcc -Os -o zepto zepto.c || { echo "Errore di compilazione"; exit 1; }
+# Compile zepto (optional, remove if already compiled)
+if [ -f zt.c ]; then
+  echo "Building zepto..."
+  gcc -Os -o zt zt.c || { echo "Build error"; exit 1; }
 fi
 
-# Copia binario
-echo "Installazione di zepto in /usr/local/bin..."
-sudo cp zepto /usr/local/bin/ || { echo "Errore durante la copia di zepto"; exit 1; }
+# Copy binary
+echo "Installing zepto to /usr/local/bin..."
+sudo cp zt /usr/local/bin/ || { echo "Error copying zepto"; exit 1; }
 
-# Crea cartella ~/.config/zepto/language
-echo "Creazione cartella ~/.config/zepto/language..."
-mkdir -p ~/.config/zepto/language
+# Create config directory
+echo "Creating ~/.config/zt/languages directory..."
+mkdir -p ~/.config/zt/languages
 
-# Copia la cartella language (presente nella stessa dir dello script)
-echo "Copia della cartella language..."
-cp -r language/* ~/.config/zepto/language/
+# Copy language folder (assumed to be in the same dir as this script)
+echo "Copying language files..."
+cp -r languages/* ~/.config/zt/languages/
 
-echo "Installazione completata!"
-
+echo "Installation completed!"

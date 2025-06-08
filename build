@@ -1,2 +1,2 @@
-gcc -Os -s zepto.c -o zepto 
-strip zepto
+gcc -Os -s zt.c -o zt 
+strip zt

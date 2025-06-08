@@ -31,7 +31,7 @@ No external libraries, no ncurses, no third-party build systems — just ANSI es
 - **Clipboard**: supports `Ctrl+C` / `Ctrl+X` / `Ctrl+V`
 - **Syntax highlighting**: colorizes keywords using user-defined config files
 - **Compact**: built binary under 30 KB
-- **Mouse support**: SGR mode supported. mouse wheel to scroll source and click to locate cursor 
+- **Mouse support**: SGR mode supported. mouse wheel to scroll source and click to locate cursor
 - **Portable**: works on any POSIX terminal
 
 ---
@@ -48,24 +48,20 @@ No external libraries, no ncurses, no third-party build systems — just ANSI es
 ## 🧾 Syntax Highlighting
 
 Syntax highlighting is driven by config files placed in:
-
 ```
 
-\~/.config/zepto/language/
+~/.config/zepto/language/
 
 ```
-
 Each file is named `<language>.config` (e.g. `c.config`) and contains lines like:
-
 ```
 
-if 31
-else 31
-while 34
+if 31  
+else 31  
+while 34  
 return 32
 
-````
-
+```
 Where the first part is the keyword and the second is the ANSI color code (`31 = red`, `34 = blue`, `32 = green`, etc.).  
 Colors are inserted at render-time using standard escape codes like `\033[31m` for red, and `\033[0m` to reset.
 
@@ -88,13 +84,13 @@ This allows Zepto to run **without ncurses**, making it ideal for static builds,
 
 ## ⚙️ Compilation
 
-To compile Zepto, run:
+To compile Zepto and produce the `zt` binary, run:
 
 ```bash
 ./build
-````
+```
 
-This will produce a tiny `zepto` binary.
+This will generate the `zt` executable.
 
 ---
 
@@ -108,26 +104,33 @@ To install Zepto system-wide and set up syntax configs:
 
 This copies:
 
-* `zepto` into `/usr/local/bin`
-* `language/` into `~/.config/zepto/language/`
+- `zt` into `/usr/local/bin`
+
+- `language/` into `~/.config/zepto/language/`
 
 ---
 
 ## 🖱️ Usage
 
 ```bash
-zepto filename.c
+zt filename.c
 ```
 
 Controls:
 
-* `Esc` — exit without saving
-* `F2` or `Ctrl+2` — save
-* `F10` — save and exit
-* `F7` or `Ctrl+7` — search
-* `Ctrl+Z` / `Ctrl+Y` — undo / redo
-* `Ctrl+C` / `Ctrl+X` / `Ctrl+V` — copy / cut / paste
-* Shift + Arrows — text selection
+- `Esc` — exit without saving
+
+- `F2` or `Ctrl+2` — save
+
+- `F10` — save and exit
+
+- `F7` or `Ctrl+7` — search
+
+- `Ctrl+Z` / `Ctrl+Y` — undo / redo
+
+- `Ctrl+C` / `Ctrl+X` / `Ctrl+V` — copy / cut / paste
+
+- Shift + Arrows — text selection
 
 ---
 
@@ -139,5 +142,6 @@ MIT License — see `LICENSE` file for details.
 
 ## 💡 Tip
 
-Ideal for rescue shells, retro systems, and minimal distros.
-Zepto proves you don’t need megabytes of code to have modern editing power.
+Ideal for rescue shells, retro systems, and minimal distros.  
+Zepto proves you don’t need megabytes of code to have modern editing pow
+
