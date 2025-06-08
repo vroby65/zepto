@@ -38,10 +38,10 @@ No external libraries, no ncurses, no third-party build systems — just ANSI es
 
 ## 📦 Files
 
-- `zepto.c` – main source file
+- `zt.c` – main source file
 - `build` – small shell script to compile the editor
 - `install` – shell script to install the editor and syntax config
-- `language/` – directory with syntax definitions (e.g., `c.config`, `python.config`)
+- `languages/` – directory with syntax definitions (e.g., `c.config`, `python.config`)
 
 ---
 
@@ -50,7 +50,7 @@ No external libraries, no ncurses, no third-party build systems — just ANSI es
 Syntax highlighting is driven by config files placed in:
 ```
 
-~/.config/zepto/language/
+~/.config/zepto/languages/
 
 ```
 Each file is named `<language>.config` (e.g. `c.config`) and contains lines like:
@@ -106,7 +106,7 @@ This copies:
 
 - `zt` into `/usr/local/bin`
 
-- `language/` into `~/.config/zepto/language/`
+- `languages/` into `~/.config/zt/languages/`
 
 ---
 
