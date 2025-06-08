@@ -87,7 +87,7 @@ Zepto looks for syntax files in:
 
 ```
 
-\~/.config/zepto/language/
+\~/.config/zt/language/
 
 ```
 
