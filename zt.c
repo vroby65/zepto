@@ -15,7 +15,6 @@
 #define BUF_SIZE     65536
 #define MAX_HISTORY   1024
 
-
 #define KEY_UP        1000
 #define KEY_DOWN      1001
 #define KEY_LEFT      1002
@@ -169,7 +168,6 @@ void load_keywords(const char *lang) {
       keyword_count++;
     }
   }
-
   fclose(fp);
 }
 
@@ -309,13 +307,9 @@ int read_key() {
 
     if (seq1 == 'h') return TOP; // Alt+h → "begin file"
     if (seq1 == 'e') return BOTTOM; // Alt+e → "end file"
-    
-    
-    
         
     if (seq1 == '[') {
       int seq2 = getchar();
-      
       
       if ( seq2 == '<') {
         int btn = 0;
@@ -423,7 +417,6 @@ int read_key() {
     }
     return 0;// unknow
   }
-
   return c; 
 }
 
@@ -538,7 +531,6 @@ void draw(char *buf, int len, int pos) {
       line++;
     }
   }
-
   for (; y < term_rows - 1; y++, show_line++) {
     printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
   }
@@ -726,8 +718,6 @@ void editor(char *buf, int *len) {
           sel_anchor = pos;
           sel_mode = 1;
         }
-        
-        //if (mouse_b==0)sel_mode=0;
 
         draw(buf, *len, pos);
         break;
@@ -775,7 +765,6 @@ void editor(char *buf, int *len) {
         break;
       }
       
-                    
       case SELECTUP: //selectup
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
         for (int i = 0; i < term_rows - 1 && pos > 0; i--) {
