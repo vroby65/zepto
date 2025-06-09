@@ -185,7 +185,7 @@ int match_keyword(char *buf, int i, int buflen, const char **color, const char *
         !strncmp(buf + i, keywords[k].word, len)) {
 
       char prev = (i > 0) ? buf[i - 1] : ' ';
-      char next = buf[i + len];
+      char next = (i + len < buflen) ? buf[i + len] : '\0';
 
       if (!isalnum((unsigned char)prev) && prev != '_' &&
           (isspace((unsigned char)next) || next == '\0' ||
@@ -199,6 +199,7 @@ int match_keyword(char *buf, int i, int buflen, const char **color, const char *
   }
   return 0;
 }
+
 
 
 void raw_mode(int enable) {
@@ -490,19 +491,21 @@ void draw(char *buf, int len, int pos) {
       int delta = match_keyword(buf, i, len, &kw_color, &kw_word);
 
       if (delta > 0) {
-        if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6 && selected) {
-          printf("\033[7m");
-        }
-        printf("%s", kw_color);
-        for (int j = 0; j < delta; j++) {
-          if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
-            putchar(kw_word[j]);
+          for (int j = 0; j < delta && i + j < len; j++) {
+              int selected = (sel_mode && i + j >= sel_from && i + j < sel_to);
+              if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
+                  if (selected)
+                      printf("\033[7m"); // inverti solo
+                  else
+                      printf("%s", kw_color); // colora solo se non selezionato
+
+                  putchar(buf[i + j]);
+                  printf("\033[0m");
+              }
+              visual_col++;
           }
-          visual_col++;
-        }
-        printf("\033[0m");
-        i += delta - 1;
-        continue;
+          i += delta - 1;
+          continue;
       }
 
       if (buf[i] == '\n') {
