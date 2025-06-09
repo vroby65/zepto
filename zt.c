@@ -200,31 +200,35 @@ int match_keyword(char *buf, int i, int buflen, const char **color, const char *
   return 0;
 }
 
-
-
 void raw_mode(int enable) {
   static struct termios raw;
   if (enable) {
     tcgetattr(0, &orig);
     raw = orig;
-    raw.c_lflag &= ~(ECHO | ICANON);
+
+    raw.c_lflag &= ~(ECHO | ICANON | ISIG);         
+    raw.c_iflag &= ~(IXON | ICRNL | BRKINT | INPCK | ISTRIP); 
+    raw.c_oflag &= ~(OPOST);                        
+    raw.c_cflag |= (CS8);                           
+
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 0;
+
     tcsetattr(0, TCSANOW, &raw);
-    
-    printf("\033[?1000h"); // enable mouse click tracking
-    printf("\033[?1002h"); // button-event mouse mode (press/drag/release)
-    printf("\033[?1006h"); // SGR              
+
+    printf("\033[?1000h"); 
+    printf("\033[?1002h"); 
+    printf("\033[?1006h"); 
 
   } else {
     tcsetattr(0, TCSANOW, &orig);
     printf("\033[0m\033[2J\033[H\033[?25h");
-    printf("\033[?1000l"); // disable mouse click tracking
+    printf("\033[?1000l"); 
     printf("\033[?1002l");
-    printf("\033[?1006l"); // SGR              
+    printf("\033[?1006l");
 
     fflush(stdout);
-    int ret= system("stty sane");  
+    int tmp=system("stty sane"); 
   }
 }
 
@@ -395,6 +399,9 @@ int read_key() {
                 case 'B': return SELECTDOWN; // Shift+Down
                 case 'C': return SELECTRIGHT; // Shift+Right
                 case 'D': return SELECTLEFT; // Shift+Left
+                
+                case 'H': return SELECTHOME;  // Shift+Home
+                case 'F': return SELECTEND;   // Shift+End
               }
             }            
             if (mod == '3') {
