@@ -504,7 +504,7 @@ void draw(char *buf, int len, int pos) {
               }
               visual_col++;
           }
-          i += delta - 1;
+          i += delta -1;
           continue;
       }
 
@@ -521,7 +521,7 @@ void draw(char *buf, int len, int pos) {
           if (selected) printf("\033[0m");
         }
         visual_col++;
-        if (i == len - 1) {
+        if (i == len - 2 ) {
           printf("\033[0m\r\n");
           y++;
           show_line++;
