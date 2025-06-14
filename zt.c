@@ -482,7 +482,7 @@ void draw(char *buf, int len, int pos) {
   if (col < hscroll) hscroll = col;
   else if (col >= hscroll + term_cols - 6) hscroll = col - (term_cols - 6) + 1;
 
-  for (int i = 0; i < len && y < term_rows - 1; i++) {
+  for (int i = 0; i < len   && y < term_rows - 1; i++) {
     if (line >= scroll) {
       static int visual_col = 0;
       if (new_line) {
@@ -500,28 +500,33 @@ void draw(char *buf, int len, int pos) {
               int selected = (sel_mode && i + j >= sel_from && i + j < sel_to);
               if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
                   if (selected)
-                      printf("\033[7m"); // inverti solo
-                  else{
+                    printf("\033[7m"); // inverti solo
+                  else
                     printf("%s", kw_color); // colora solo se non selezionato
-                  }
 
                   putchar(buf[i + j]);
                   printf("\033[0m");
               }
               visual_col++;
           }
-          i += delta -1;         
-          continue;
+          i += delta - 1;
+          if (i == len - 1 ) {
+            printf("\033[0m\r\n");
+            y++;
+            show_line++;
+            new_line=0;
+          }         
+          continue;          
       }
-
-      if (buf[i] == '\n') {
+      
+      if (buf[i] == '\n' ) {
         printf("\033[0m\r\n");
         y++;
         show_line++;
         new_line = 1;
         line++;
       } else {
-        new_line=0;
+        new_line = 0;
         if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
           if (selected) printf("\033[7m");
           putchar(buf[i]);
@@ -535,9 +540,11 @@ void draw(char *buf, int len, int pos) {
         }
       }
     } else if (buf[i] == '\n') {
-      line++;
+        line++;
     }
+    
   }
+  
   for (; y < term_rows - 1; y++, show_line++) {
    printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
   }
