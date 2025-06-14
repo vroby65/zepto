@@ -53,6 +53,8 @@
 #define SELECTEND     1027
 #define SELECTALL     1028
 
+#define CTRL_U        1029
+#define CTRL_K        1030
 
 #define MOUSE_MOVE    1100
 #define DOUBLE_CLICK  1101
@@ -295,6 +297,9 @@ int read_key() {
   if (c == 25) return CTRL_Y; // Ctrl+Y
   if (c == 26) return CTRL_Z; // Ctrl+Z
   
+  if (c == 21) return CTRL_U;  // Ctrl+U
+  if (c == 11) return CTRL_K;  // Ctrl+K
+
   if (c == 31) return SEARCH;   // Ctrl+7 - find
   if (c == 0) return SAVE; // Ctrl+2 - save
   
@@ -485,7 +490,7 @@ void draw(char *buf, int len, int pos) {
         printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m", show_line + 1);
         new_line = 0;
       }
-
+      
       int selected = (sel_mode && i >= sel_from && i < sel_to);
       const char *kw_color, *kw_word;
       int delta = match_keyword(buf, i, len, &kw_color, &kw_word);
@@ -496,15 +501,16 @@ void draw(char *buf, int len, int pos) {
               if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
                   if (selected)
                       printf("\033[7m"); // inverti solo
-                  else
-                      printf("%s", kw_color); // colora solo se non selezionato
+                  else{
+                    printf("%s", kw_color); // colora solo se non selezionato
+                  }
 
                   putchar(buf[i + j]);
                   printf("\033[0m");
               }
               visual_col++;
           }
-          i += delta -1;
+          i += delta -1;         
           continue;
       }
 
@@ -515,13 +521,14 @@ void draw(char *buf, int len, int pos) {
         new_line = 1;
         line++;
       } else {
+        new_line=0;
         if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
           if (selected) printf("\033[7m");
           putchar(buf[i]);
           if (selected) printf("\033[0m");
         }
         visual_col++;
-        if (i == len - 2 ) {
+        if (i == len - 1 ) {
           printf("\033[0m\r\n");
           y++;
           show_line++;
@@ -532,7 +539,7 @@ void draw(char *buf, int len, int pos) {
     }
   }
   for (; y < term_rows - 1; y++, show_line++) {
-    printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
+   printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
   }
 
   // status bar
@@ -690,6 +697,35 @@ void editor(char *buf, int *len) {
           buf[*len] = 0;
         }
         break;
+        
+      case CTRL_U: {
+          int start = line_start(buf, *len, pos);
+          int count = pos - start;
+          if (count > 0) {
+            record_change(start, buf + start, count, NULL, 0);
+            memmove(buf + start, buf + pos, *len - pos);
+            *len -= count;
+            buf[*len] = 0;
+            pos = start;
+            sel_mode = 0;
+            sel_anchor = -1;
+          }
+          break;
+      }
+
+      case CTRL_K: {
+          int end = line_end(buf, *len, pos);
+          int count = end - pos;
+          if (count > 0) {
+            record_change(pos, buf + pos, count, NULL, 0);
+            memmove(buf + pos, buf + end, *len - end);
+            *len -= count;
+            buf[*len] = 0;
+            sel_mode = 0;
+            sel_anchor = -1;
+          }
+          break;
+      }
         
       case 10: //RETURN
         if (*len < BUF_SIZE - 1) {
