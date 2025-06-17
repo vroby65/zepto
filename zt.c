@@ -145,9 +145,6 @@ struct Keyword {
 struct Keyword keywords[MAX_KEYWORDS];
 int keyword_count = 0;
 
-
-#include <ctype.h>
-
 void load_keywords(const char *lang) {
   keyword_count = 0;
 
@@ -214,7 +211,8 @@ void raw_mode(int enable) {
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 0;
 
-    tcsetattr(0, TCSANOW, &raw);
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+    //tcsetattr(0, TCSANOW, &raw);
 
     printf("\033[?1000h"); 
     printf("\033[?1002h"); 
@@ -230,6 +228,20 @@ void raw_mode(int enable) {
     fflush(stdout);
     int tmp=system("stty sane"); 
   }
+}
+
+int utf8_charlen(unsigned char c) {
+  if (c < 128) return 1;
+  if ((c >> 5) == 0x6) return 2;
+  if ((c >> 4) == 0xE) return 3;
+  if ((c >> 3) == 0x1E) return 4;
+  return 1;
+}
+
+int utf8_isalnum(const char *s, int len) {
+  if ((unsigned char)s[0] < 128)
+    return isalnum(s[0]) || s[0] == '_';
+  return 0; 
 }
 
 void cleanup() {
@@ -303,6 +315,8 @@ int read_key() {
   if (c == 31) return SEARCH;   // Ctrl+7 - find
   if (c == 0) return SAVE; // Ctrl+2 - save
   
+  if (c == 194)return 194;
+  if (c == 195) return 195; 
 
   if (c == 27) { // ESC    
     fcntl(0, F_SETFL, O_NONBLOCK); int seq1 = getchar(); fcntl(0, F_SETFL, 0);
@@ -461,19 +475,23 @@ void draw(char *buf, int len, int pos) {
   }
 
   printf("\033[H"); // home
+
   int line = 0, y = 0;
   int show_line = scroll;
   int new_line = 1;
 
   int cx = 1, cy = 1;
   int l = 0, col = 0;
-  for (int i = 0; i < pos && i < len; i++) {
+
+  for (int i = 0; i < pos && i < len; ) {
+    int clen = utf8_charlen(buf[i]);
     if (buf[i] == '\n') {
       l++;
       col = 0;
     } else {
       col++;
     }
+    i += clen;
   }
 
   if (l < scroll) scroll = l;
@@ -482,7 +500,7 @@ void draw(char *buf, int len, int pos) {
   if (col < hscroll) hscroll = col;
   else if (col >= hscroll + term_cols - 6) hscroll = col - (term_cols - 6) + 1;
 
-  for (int i = 0; i < len   && y < term_rows - 1; i++) {
+  for (int i = 0; i < len && y < term_rows - 1; ) {
     if (line >= scroll) {
       static int visual_col = 0;
       if (new_line) {
@@ -490,73 +508,81 @@ void draw(char *buf, int len, int pos) {
         printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m", show_line + 1);
         new_line = 0;
       }
-      
+
+      int clen = utf8_charlen(buf[i]);
       int selected = (sel_mode && i >= sel_from && i < sel_to);
       const char *kw_color, *kw_word;
       int delta = match_keyword(buf, i, len, &kw_color, &kw_word);
 
       if (delta > 0) {
-          for (int j = 0; j < delta && i + j < len; j++) {
-              int selected = (sel_mode && i + j >= sel_from && i + j < sel_to);
-              if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
-                  if (selected)
-                    printf("\033[7m"); // inverti solo
-                  else
-                    printf("%s", kw_color); // colora solo se non selezionato
+        for (int j = 0; j < delta && i + j < len; ) {
+          int chlen = utf8_charlen(buf[i + j]);
+          int selected = (sel_mode && i + j >= sel_from && i + j < sel_to);
 
-                  putchar(buf[i + j]);
-                  printf("\033[0m");
-              }
-              visual_col++;
+          if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
+            if (selected)
+              printf("\033[7m");
+            else
+              printf("%s", kw_color);
+            fwrite(buf + i + j, 1, chlen, stdout);
+            printf("\033[0m");
           }
-          i += delta - 1;
-          if (i == len - 1 ) {
-            printf("\033[0m\r\n");
-            y++;
-            show_line++;
-            new_line=0;
-          }         
-          continue;          
+          visual_col++;
+          j += chlen;
+        }
+        i += delta;
+        if (i == len) {
+          printf("\033[0m\r\n");
+          y++;
+          show_line++;
+          new_line = 0;
+        }
+        continue;
       }
-      
-      if (buf[i] == '\n' ) {
+
+      if (buf[i] == '\n') {
         printf("\033[0m\r\n");
         y++;
         show_line++;
         new_line = 1;
         line++;
+        i += clen;
       } else {
         new_line = 0;
         if (visual_col >= hscroll && visual_col - hscroll < term_cols - 6) {
           if (selected) printf("\033[7m");
-          putchar(buf[i]);
+          fwrite(buf + i, 1, clen, stdout);
           if (selected) printf("\033[0m");
         }
         visual_col++;
-        if (i == len - 1 ) {
+        i += clen;
+        if (i == len) {
           printf("\033[0m\r\n");
           y++;
           show_line++;
         }
       }
-    } else if (buf[i] == '\n') {
+    } else {
+      int clen = utf8_charlen(buf[i]);
+      if (buf[i] == '\n') {
         line++;
+      }
+      i += clen;
     }
-    
-  }
-  
-  for (; y < term_rows - 1; y++, show_line++) {
-   printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
   }
 
-  // status bar
+  for (; y < term_rows - 1; y++, show_line++) {
+    printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
+  }
+
+  // Status bar
   char status_line[term_cols + 1];
   snprintf(status_line, term_cols + 1, "file:%s  %s", filename ? filename : "[senza nome]", status_msg);
   printf("\033[%d;1H\033[7m", term_rows);
   printf("%-*.*s", term_cols, term_cols, status_line);
   printf("\033[0m");
 
-  // cursor
+  // cursor position
   cx = col - hscroll + 7;
   cy = l - scroll + 1;
   printf("\033[%d;%dH", cy, cx);
@@ -654,55 +680,37 @@ void editor(char *buf, int *len) {
         done = 1;
         break;
         
-      case 127: case 8: //backspace
-        if (sel_mode) {
-          int from = pos < sel_anchor ? pos : sel_anchor;
-          int to = pos > sel_anchor ? pos : sel_anchor;
-          int count = to - from;
-          if (count > 0) {
-            record_change(from, buf + from, count, NULL, 0);
-            memmove(buf + from, buf + to, *len - to);
-            *len -= count;
-            buf[*len] = 0;
-            pos = from;
-            sel_mode = 0;
-            sel_anchor = -1;
-            break;
-          }
-        }
+      case 127: // Backspace
+      case 8:
         if (pos > 0) {
-          char removed = buf[pos - 1];
-          record_change(pos - 1, &removed, 1, NULL, 0);
-          pos--;
-          (*len)--;
-          memmove(buf + pos, buf + pos + 1, *len - pos);
-          buf[*len] = 0;
+          int start = pos;
+          do {
+            pos--;
+          } while (pos > 0 && (buf[pos] & 0xC0) == 0x80); 
+
+          int clen = start - pos; 
+          memmove(buf + pos, buf + start, *len - start);
+          *len -= clen;
         }
+        sel_mode = 0;
         break;
-        
-      case DELETE: // del
-        if (sel_mode) {
-          int from = pos < sel_anchor ? pos : sel_anchor;
-          int to = pos > sel_anchor ? pos : sel_anchor;
-          int count = to - from;
-          if (count > 0) {
-            record_change(from, buf + from, count, NULL, 0);
-            memmove(buf + from, buf + to, *len - to);
-            *len -= count;
-            buf[*len] = 0;
-            pos = from;
-            sel_mode = 0;
-            sel_anchor = -1;
-            break;
+              
+      case DELETE:
+        if (pos < *len) {
+          int clen = 1;
+
+          unsigned char c = buf[pos];
+          if ((c & 0x80) == 0x00) clen = 1;
+          else if ((c & 0xE0) == 0xC0) clen = 2;
+          else if ((c & 0xF0) == 0xE0) clen = 3;
+          else if ((c & 0xF8) == 0xF0) clen = 4;
+
+          if (pos + clen <= *len) {
+            memmove(buf + pos, buf + pos + clen, *len - (pos + clen));
+            *len -= clen;
           }
         }
-        if (pos < *len) {
-          char removed = buf[pos];
-          record_change(pos, &removed, 1, NULL, 0);
-          (*len)--;
-          memmove(buf + pos, buf + pos + 1, *len - pos);
-          buf[*len] = 0;
-        }
+        sel_mode = 0;
         break;
         
       case CTRL_U: {
@@ -742,22 +750,47 @@ void editor(char *buf, int *len) {
         }
         break;
         
-      case KEY_LEFT: if (pos > 0) pos--; sel_mode = 0; break;
-      case KEY_RIGHT: if (pos < *len) pos++; sel_mode = 0; break;
+      case KEY_LEFT:
+        if (pos > 0) {
+          do {
+            pos--;
+          } while (pos > 0 && (buf[pos] & 0xC0) == 0x80); 
+        }
+        sel_mode = 0;
+        break;
+
+      case KEY_RIGHT:
+        if (pos < *len) {
+          unsigned char c = buf[pos];
+          int clen = 1;
+          if ((c & 0x80) == 0x00) clen = 1;       // ASCII
+          else if ((c & 0xE0) == 0xC0) clen = 2;  // 110xxxxx
+          else if ((c & 0xF0) == 0xE0) clen = 3;  // 1110xxxx
+          else if ((c & 0xF8) == 0xF0) clen = 4;  // 11110xxx
+
+          if (pos + clen <= *len)
+            pos += clen;
+        }
+        sel_mode = 0;
+        break;
+        
       case KEY_UP: pos = move_vert(buf, *len, pos, -1); sel_mode = 0; draw(buf, *len, pos); break;
       case KEY_DOWN: pos = move_vert(buf, *len, pos, +1); sel_mode = 0; draw(buf, *len, pos); break;
       
       case MOUSE_MOVE:
         pos = 0;
         for (int i = 0; i < mouse_y + scroll - 1; i++) {
-          pos = move_vert(buf, *len, pos, +1);
-        }
-        for (int i = 0; i < mouse_x - 7; i++) {
-          if (pos < *len && buf[pos] != '\n') pos++;
-          else break;
+          pos = move_vert(buf, *len, pos, +1); 
         }
 
-        if (!sel_mode ) {
+        for (int col = 0; col < mouse_x - 7; col++) {
+          if (pos < *len && buf[pos] != '\n') {
+            int clen = utf8_charlen((unsigned char)buf[pos]);
+            pos += clen;
+          } else break;
+        }
+
+        if (!sel_mode) {
           sel_anchor = pos;
           sel_mode = 1;
         }
@@ -770,18 +803,30 @@ void editor(char *buf, int *len) {
         for (int i = 0; i < mouse_y + scroll - 1; i++) {
           pos = move_vert(buf, *len, pos, +1);
         }
-        for (int i = 0; i < mouse_x - 7; i++) {
-          if (pos < *len && buf[pos] != '\n') pos++;
-          else break;
+
+        for (int col = 0; col < mouse_x - 7; col++) {
+          if (pos < *len && buf[pos] != '\n') {
+            int clen = utf8_charlen((unsigned char)buf[pos]);
+            pos += clen;
+          } else break;
         }
+
         int start = pos;
-        while (start > 0 && (isalnum(buf[start - 1]) || buf[start - 1] == '_')) {
-          start--;
+        while (start > 0) {
+          int prev = start - 1;
+          while (prev > 0 && (buf[prev] & 0xC0) == 0x80) prev--;
+          int clen = utf8_charlen((unsigned char)buf[prev]);
+          if (!utf8_isalnum(buf + prev, clen)) break;
+          start = prev;
         }
+
         int end = pos;
-        while (end < *len && (isalnum(buf[end]) || buf[end] == '_')) {
-          end++;
+        while (end < *len) {
+          int clen = utf8_charlen((unsigned char)buf[end]);
+          if (!utf8_isalnum(buf + end, clen)) break;
+          end += clen;
         }
+
         sel_anchor = start;
         pos = end;
         sel_mode = 1;
@@ -808,22 +853,43 @@ void editor(char *buf, int *len) {
         break;
       }
       
-      case SELECTUP: //selectup
+      case SELECTUP: // select up
         if (!sel_mode) sel_anchor = pos, sel_mode = 1;
-        for (int i = 0; i < term_rows - 1 && pos > 0; i--) {
-          pos = (pos > 0) ? pos - 1 : 0;
-          if (buf[pos] == '\n') break;
-        }
-        break;
-        
-      case SELECTDOWN: //selectdown
-        if (!sel_mode) sel_anchor = pos, sel_mode = 1;
-        for (int i = 0; i < term_rows - 1 && pos < *len; i++) {
+
+        for (int i = 0; i < term_rows - 1 && pos > 0; i++) {
+          // vai indietro di un carattere UTF-8
+          do {
+            pos--;
+          } while (pos > 0 && (buf[pos] & 0xC0) == 0x80); // skip continuation byte
+
           if (buf[pos] == '\n') {
-            pos++;
+            pos++; // torna a inizio riga
             break;
           }
-          pos++;
+        }
+        break;
+
+        
+      case SELECTDOWN: // select down
+        if (!sel_mode) sel_anchor = pos, sel_mode = 1;
+
+        for (int i = 0; i < term_rows - 1 && pos < *len; i++) {
+          unsigned char c = buf[pos];
+          int clen = 1;
+          if ((c & 0x80) == 0x00) clen = 1;
+          else if ((c & 0xE0) == 0xC0) clen = 2;
+          else if ((c & 0xF0) == 0xE0) clen = 3;
+          else if ((c & 0xF8) == 0xF0) clen = 4;
+
+          if (buf[pos] == '\n') {
+            pos += clen;
+            break;
+          }
+
+          if (pos + clen <= *len)
+            pos += clen;
+          else
+            break;
         }
         break;
         
@@ -942,6 +1008,25 @@ void editor(char *buf, int *len) {
         }
         pos = line_start(buf, *len, pos);
         break;
+        
+      case 195: 
+        if (*len < BUF_SIZE - 2) {
+          memmove(buf + pos + 2, buf + pos, *len - pos);
+          buf[pos++] = 195;
+          buf[pos++] = getchar();
+          (*len)+=2;
+        }
+        break;
+      
+      case 194:        
+        if (*len < BUF_SIZE - 2) {
+          memmove(buf + pos + 2, buf + pos, *len - pos);
+          buf[pos++] = 194;
+          buf[pos++] = getchar();
+          (*len)+=2;
+        }
+        break;
+
       case 0: break;
       default:
         if (ch >= 32 && ch < 127 && *len < BUF_SIZE - 1) {
