@@ -571,10 +571,9 @@ void draw(char *buf, int len, int pos) {
     }
   }
 
-  for (; y < term_rows - 1; y++, show_line++) {
-    printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
-  }
-
+  if (buf[len - 1]=='\n')printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
+  printf("\033[J");//delete over lastline
+  
   // Status bar
   char status_line[term_cols + 1];
   snprintf(status_line, term_cols + 1, "file:%s  %s", filename ? filename : "[senza nome]", status_msg);
@@ -587,6 +586,7 @@ void draw(char *buf, int len, int pos) {
   cy = l - scroll + 1;
   printf("\033[%d;%dH", cy, cx);
   printf("\033[?25h");  // show cursor
+
 }
 
 void save(char *buf, int len) {
@@ -639,6 +639,23 @@ void save(char *buf, int len) {
     unlink(tmpname);
   } else {
     snprintf(status_msg, sizeof(status_msg), "Save error");
+  }
+}
+
+void delete_selection(char *buf, int *len, int *pos) {
+  if (!sel_mode || sel_anchor == *pos) return;
+
+  int start = sel_anchor < *pos ? sel_anchor : *pos;
+  int end   = sel_anchor > *pos ? sel_anchor : *pos;
+  int count = end - start;
+
+  if (count > 0) {
+    record_change(start, buf + start, count, NULL, 0);
+    memmove(buf + start, buf + end, *len - end);
+    *len -= count;
+    *pos = start;
+    sel_mode = 0;
+    sel_anchor = -1;
   }
 }
 
@@ -696,6 +713,10 @@ void editor(char *buf, int *len) {
         break;
               
       case DELETE:
+        if (sel_mode && sel_anchor != pos &&
+            (ch == DELETE || (ch >= 32 && ch < 127) || ch == 194 || ch == 195)) {
+          delete_selection(buf, len, &pos);
+        }
         if (pos < *len) {
           int clen = 1;
 
@@ -1029,6 +1050,10 @@ void editor(char *buf, int *len) {
 
       case 0: break;
       default:
+        if (sel_mode && sel_anchor != pos &&
+            (ch == DELETE || (ch >= 32 && ch < 127) || ch == 194 || ch == 195)) {
+          delete_selection(buf, len, &pos);
+        }
         if (ch >= 32 && ch < 127 && *len < BUF_SIZE - 1) {
           char after[1] = { ch };
           record_change(pos, buf + pos, 0, after, 1);
