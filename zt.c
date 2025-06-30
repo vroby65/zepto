@@ -571,7 +571,11 @@ void draw(char *buf, int len, int pos) {
     }
   }
 
-  if (buf[len - 1]=='\n')printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line + 1);
+
+  if (buf[len - 1] == '\n' && y < term_rows - 1 && scroll + y >= line){
+      printf("\033[K\033[48;5;236;38;5;250m%4d │\033[0m\r\n", show_line+1 );
+      y++;
+  }
   printf("\033[J");//delete over lastline
   
   // Status bar
@@ -768,6 +772,7 @@ void editor(char *buf, int *len) {
           memmove(buf + pos + 1, buf + pos, *len - pos);
           buf[pos++] = '\n';
           (*len)++;
+          draw(buf, *len, pos);
         }
         break;
         
