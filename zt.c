@@ -963,7 +963,26 @@ void editor(char *buf, int *len) {
         break;
         
       case 9: // TAB
-        if (*len + 2 < BUF_SIZE) {
+        if (sel_mode && sel_anchor != pos) {
+          int start = sel_anchor < pos ? sel_anchor : pos;
+          int end   = sel_anchor > pos ? sel_anchor : pos;
+
+          int line_start_pos = line_start(buf, *len, start);
+          int line_end_pos   = line_end(buf, *len, end);
+          int new_pos = pos + 2;
+
+          for (int i = line_start_pos; i <= line_end_pos && *len + 2 < BUF_SIZE; ) {
+            record_change(i, NULL, 0, "  ", 2);
+            memmove(buf + i + 2, buf + i, *len - i);
+            buf[i] = ' ';
+            buf[i + 1] = ' ';
+            *len += 2;
+
+            i = line_end(buf, *len, i + 2) + 1;
+            if (i > *len) break;
+          }
+          pos = new_pos;
+        } else if (*len + 2 < BUF_SIZE) {
           char text[2] = { ' ', ' ' };
           record_change(pos, NULL, 0, text, 2);
           memmove(buf + pos + 2, buf + pos, *len - pos);
