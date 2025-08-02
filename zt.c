@@ -334,10 +334,10 @@ int read_key() {
     if (seq1 == '[') {
       int seq2 = getchar();
     
-      if ( seq2='['){
-        int seq3 =getchar();
-        if ( seq3=='B')return SAVE; //F2 in tty
-        if ( seq3=='C'){sel_persistent ^=1; return 0; }//F3 in tty
+      if ( seq2 == '['){
+        int seq3 = getchar();
+        if ( seq3 =='B')return SAVE; //F2 in tty
+        if ( seq3 =='C'){sel_persistent ^=1; return 0; }//F3 in tty
       }
 
       if ( seq2 == '<') {
