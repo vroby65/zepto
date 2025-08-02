@@ -76,6 +76,7 @@ char mouse_b;
 //selection
 int sel_anchor = -1;
 int sel_mode = 0;
+int sel_persistent = 0;
 char clipboard[BUF_SIZE];
 
 // history 
@@ -321,8 +322,11 @@ int read_key() {
   if (c == 27) { // ESC    
     fcntl(0, F_SETFL, O_NONBLOCK); int seq1 = getchar(); fcntl(0, F_SETFL, 0);
     if (seq1 ==-1) return KEY_ESC;
-    if (seq1=='O' && getchar()=='Q')return SAVE; //F2
-
+    if (seq1=='O') {
+      int seq2= getchar();
+      if ( seq2=='Q')return SAVE; //F2
+      if ( seq2=='R'){sel_persistent ^=1; return 0; }//F3
+    }
 
     if (seq1 == 'h') return TOP; // Alt+h → "begin file"
     if (seq1 == 'e') return BOTTOM; // Alt+e → "end file"
@@ -379,10 +383,10 @@ int read_key() {
       }
       
       switch (seq2) {
-        case 'A': return KEY_UP;     // Up
-        case 'B': return KEY_DOWN;   // Down
-        case 'C': return KEY_RIGHT;  // Right
-        case 'D': return KEY_LEFT;   // Left
+        case 'A': if(sel_persistent)return SELECTUP; else return KEY_UP;     // Up
+        case 'B': if(sel_persistent)return SELECTDOWN; else return KEY_DOWN;   // Down
+        case 'C': if(sel_persistent)return SELECTRIGHT; else return KEY_RIGHT;  // Right
+        case 'D': if(sel_persistent)return SELECTLEFT; else return KEY_LEFT;   // Left
 
         case 'H': return KEY_HOME;   // Home
         case 'F': return KEY_END;    // End
@@ -585,6 +589,7 @@ void draw(char *buf, int len, int pos) {
   printf("%-*.*s", term_cols, term_cols, status_line);
   printf("\033[0m");
 
+
   // cursor position
   cx = col - hscroll + 7;
   cy = l - scroll + 1;
@@ -675,6 +680,8 @@ void editor(char *buf, int *len) {
 
     int ch = read_key();
     snprintf(status_msg, sizeof(status_msg), "  ESC exit | F2 save | F7 search | F10 save & exit");
+    if (sel_persistent) snprintf(status_msg, sizeof(status_msg), "SEL MODE ON");
+
 
     switch (ch) {
       case KEY_ESC: //exit without save
