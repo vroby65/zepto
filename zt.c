@@ -333,9 +333,12 @@ int read_key() {
         
     if (seq1 == '[') {
       int seq2 = getchar();
-      
-      if ( seq2=='Q')return SAVE; //F2 in tty
-      if ( seq2=='R'){sel_persistent ^=1; return 0; }//F3 in tty
+    
+      if ( seq2='['){
+        int seq3 =getchar();
+        if ( seq3=='Q')return SAVE; //F2 in tty
+        if ( seq3=='R'){sel_persistent ^=1; return 0; }//F3 in tty
+      }
 
       if ( seq2 == '<') {
         int btn = 0;
