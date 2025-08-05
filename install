@@ -1,5 +1,14 @@
 #!/bin/sh
 
+# Funzione per eseguire comandi con privilegi di root (usa sudo o su -c)
+run_as_root() {
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    su -c "$*"
+  fi
+}
+
 # Compile zepto (optional, remove if already compiled)
 if [ -f zt.c ]; then
   echo "Building zepto..."
@@ -8,7 +17,7 @@ fi
 
 # Copy binary
 echo "Installing zepto to /usr/local/bin..."
-sudo cp zt /usr/local/bin/ || { echo "Error copying zepto"; exit 1; }
+run_as_root cp zt /usr/local/bin/ || { echo "Error copying zepto"; exit 1; }
 
 # Create config directory
 echo "Creating ~/.config/zt/languages directory..."
